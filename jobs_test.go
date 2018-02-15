@@ -27,6 +27,7 @@ func (job *MockJob) Exec() error {
 		time.Sleep(job.sleepDuration)
 	}
 	atomic.AddInt32(&job.invoked, 1)
+	// fmt.Println(job.returnError)
 	if job.returnValue != "" {
 		job.actualReturnValue = job.returnValue
 	}

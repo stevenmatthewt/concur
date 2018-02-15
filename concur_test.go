@@ -1,6 +1,8 @@
 package concur_test
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -79,28 +81,28 @@ func TestConcurrentRunnerUneven(t *testing.T) {
 // 	}
 // }
 
-// func TestConcurrentRunnerReturnData(t *testing.T) {
-// 	mockJobs := make([]MockJob, 42)
-// 	tasks := make([]concur.Task, len(mockJobs))
-// 	for i := range mockJobs {
-// 		mockJobs[i].returnValue = fmt.Sprintf("MockJobReturnValue%d", i)
-// 		tasks[i] = &mockJobs[i]
-// 	}
+func TestConcurrentRunnerReturnData(t *testing.T) {
+	mockJobs := make([]MockJob, 42)
+	tasks := make([]concur.Task, len(mockJobs))
+	for i := range mockJobs {
+		mockJobs[i].returnValue = fmt.Sprintf("MockJobReturnValue%d", i)
+		tasks[i] = &mockJobs[i]
+	}
 
-// 	err := concur.Concurrent().Run(tasks...)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	err := concur.Concurrent().Run(tasks...)
+	if err != nil {
+		t.Error(err)
+	}
 
-// 	for i, job := range mockJobs {
-// 		if job.invoked != 1 {
-// 			t.Errorf("jobs[%d] invoked incorrect number of times: %d", i, job.invoked)
-// 		}
-// 		if job.actualReturnValue != fmt.Sprintf("MockJobReturnValue%d", i) {
-// 			t.Errorf("jobs[%d] returned incorrect results: %s", i, job.actualReturnValue)
-// 		}
-// 	}
-// }
+	for i, job := range mockJobs {
+		if job.invoked != 1 {
+			t.Errorf("jobs[%d] invoked incorrect number of times: %d", i, job.invoked)
+		}
+		if job.actualReturnValue != fmt.Sprintf("MockJobReturnValue%d", i) {
+			t.Errorf("jobs[%d] returned incorrect results: %s", i, job.actualReturnValue)
+		}
+	}
+}
 
 func TestConcurrentRunnerPanic(t *testing.T) {
 	const numRuns = 100
@@ -125,5 +127,28 @@ func TestConcurrentRunnerPanic(t *testing.T) {
 
 	if mockJob.invoked != numRuns-1 {
 		t.Errorf("mockJob.invoked incorrect number of times: %d", mockJob.invoked)
+	}
+}
+
+func TestConcurrentRunnerErrors(t *testing.T) {
+	job1 := MockJob{returnError: errors.New("job1 error")}
+	job2 := MockJob{returnError: errors.New("job2 error")}
+	job3 := MockJob{returnError: errors.New("job3 error")}
+
+	err := concur.Concurrent().Run(&job1, &job2, &job3)
+	if err == nil {
+		t.Error("should have received error")
+	} else if !strings.Contains(err.Error(), "job1 error, job2 error, job3 error") {
+		t.Errorf("error missing information: %v", err)
+	}
+
+	if job1.invoked != 1 {
+		t.Errorf("job1 invoked incorrect number of times: %d", job1.invoked)
+	}
+	if job2.invoked != 1 {
+		t.Errorf("job2 invoked incorrect number of times: %d", job2.invoked)
+	}
+	if job3.invoked != 1 {
+		t.Errorf("job3 invoked incorrect number of times: %d", job3.invoked)
 	}
 }

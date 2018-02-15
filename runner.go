@@ -26,7 +26,7 @@ type ConcurrentRunner struct {
 // Please note that one task returning an error
 // will not halt execution of the remaining tasks
 func (runner ConcurrentRunner) Run(tasks ...Task) (err error) {
-	timer := time.NewTimer(time.Second)
+	timer := time.NewTimer(time.Second * 10)
 
 	runner.errorChan = make(chan error)
 	runner.successChan = make(chan bool)
@@ -43,14 +43,15 @@ func (runner ConcurrentRunner) Run(tasks ...Task) (err error) {
 					default:
 						err = fmt.Errorf("%+v", r)
 					}
-					runner.errorChan <- errors.Wrap(err, "task panicked")
+					runner.errorChan <- err
 				}
 			}()
 			err := task.Exec()
 			if err != nil {
-				runner.errorChan <- errors.Wrap(err, "failed to run task")
+				runner.errorChan <- err
+			} else {
+				runner.successChan <- true
 			}
-			runner.successChan <- true
 		}(task)
 	}
 
@@ -61,17 +62,21 @@ func (runner ConcurrentRunner) Run(tasks ...Task) (err error) {
 }
 
 func (runner ConcurrentRunner) waitOnChannels(num int) error {
-	var err error
+	var cumulativeErr CumulativeError
 	for i := 0; i < num; {
 		select {
-		case err = <-runner.errorChan:
+		case err := <-runner.errorChan:
+			cumulativeErr.add(err)
 			i++
 		case <-runner.successChan:
 			i++
 		case <-runner.timeoutChan:
-			err = errors.New("timed out waiting for task(s) to complete")
+			cumulativeErr.add(errors.New("timed out waiting for task(s) to complete"))
 			break
 		}
 	}
-	return err
+	if cumulativeErr.isError() {
+		return cumulativeErr
+	}
+	return nil
 }
