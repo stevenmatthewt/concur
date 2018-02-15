@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
 )
 
 type Runner interface {
