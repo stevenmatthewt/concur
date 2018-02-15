@@ -138,7 +138,9 @@ func TestConcurrentRunnerErrors(t *testing.T) {
 	err := concur.Concurrent().Run(&job1, &job2, &job3)
 	if err == nil {
 		t.Error("should have received error")
-	} else if !strings.Contains(err.Error(), "job1 error, job2 error, job3 error") {
+	} else if !strings.Contains(err.Error(), "job1 error") ||
+		!strings.Contains(err.Error(), "job2 error") ||
+		!strings.Contains(err.Error(), "job2 error") {
 		t.Errorf("error missing information: %v", err)
 	}
 

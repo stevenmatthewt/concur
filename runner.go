@@ -20,8 +20,17 @@ func Concurrent() ConcurrentRunner {
 	return ConcurrentRunner{}
 }
 
+// SetTimeout sets the timeout for the current Runner
+// If execution of any Tasks exceeds the timeout, the Runner will return an error.
+// Please not that the remaining Tasks will continue to execute in their own goroutine
+func (runner ConcurrentRunner) SetTimeout(dur time.Duration) ConcurrentRunner {
+	runner.timeout = &dur
+	return runner
+}
+
 // ConcurrentRunner runs Tasks concurrently.
 type ConcurrentRunner struct {
+	timeout     *time.Duration
 	successChan chan bool
 	errorChan   chan error
 	timeoutChan <-chan time.Time
@@ -34,11 +43,14 @@ type ConcurrentRunner struct {
 //
 // Run block until execution of all Tasks is complete.
 func (runner ConcurrentRunner) Run(tasks ...Task) (err error) {
-	timer := time.NewTimer(time.Second * 10)
+	if runner.timeout != nil {
+		timer := time.NewTimer(*runner.timeout)
+		runner.timeoutChan = timer.C
+		defer timer.Stop()
+	}
 
 	runner.errorChan = make(chan error)
 	runner.successChan = make(chan bool)
-	runner.timeoutChan = timer.C
 	for _, task := range tasks {
 		go func(task Task) {
 			defer func() {
@@ -64,7 +76,6 @@ func (runner ConcurrentRunner) Run(tasks ...Task) (err error) {
 	}
 
 	err = runner.waitOnChannels(len(tasks))
-	timer.Stop()
 
 	return err
 }
@@ -80,7 +91,9 @@ func (runner ConcurrentRunner) waitOnChannels(num int) error {
 			i++
 		case <-runner.timeoutChan:
 			cumulativeErr.add(errors.New("timed out waiting for task(s) to complete"))
-			break
+			close(runner.errorChan)
+			close(runner.successChan)
+			return cumulativeErr
 		}
 	}
 	if cumulativeErr.isError() {
