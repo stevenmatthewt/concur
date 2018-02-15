@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// CumulativeError is an error that records all
+// individual errors that occur during task execution.
+// These errors are then returned as a single CumulativeError
 type CumulativeError struct {
 	Errors []error
 }

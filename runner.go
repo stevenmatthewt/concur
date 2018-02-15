@@ -7,24 +7,32 @@ import (
 	"errors"
 )
 
+// Runner is an interface describing anything
+// that is capable of running Tasks.
 type Runner interface {
 	Run(tasks ...Task) error
 }
 
+// Concurrent creates a new ConcurrentRunner
+// which is responsible for running Tasks
+// concurrently.
 func Concurrent() ConcurrentRunner {
 	return ConcurrentRunner{}
 }
 
+// ConcurrentRunner runs Tasks concurrently.
 type ConcurrentRunner struct {
 	successChan chan bool
 	errorChan   chan error
 	timeoutChan <-chan time.Time
 }
 
-// Run takes a list of tasks and runs them concurrently.
-// An error is returned if any tasks return an error.
-// Please note that one task returning an error
-// will not halt execution of the remaining tasks
+// Run takes a list of Tasks and runs them concurrently.
+// An error is returned if any Tasks return an error.
+// Please note that one Task returning an error
+// will not halt execution of the remaining Tasks.
+//
+// Run block until execution of all Tasks is complete.
 func (runner ConcurrentRunner) Run(tasks ...Task) (err error) {
 	timer := time.NewTimer(time.Second * 10)
 
